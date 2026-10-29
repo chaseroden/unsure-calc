@@ -286,31 +286,6 @@ svg {
     margin-top: 14px;
 }
 
-.chips {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: none;
-}
-
-.chips span {
-    flex: none;
-    padding: 5px 9px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    font-size: 0.8rem;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.chips b {
-    color: var(--muted);
-    font-weight: 500;
-    margin-right: 4px;
-}
-
 .paths {
     margin-top: 10px;
     font-size: 0.85rem;
