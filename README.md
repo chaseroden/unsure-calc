@@ -3,7 +3,7 @@
 A phone-friendly calculator for things you're not sure about, live at
 **[calc.wizbiz.ooo](https://calc.wizbiz.ooo)**. Put a range wherever you'd guess a
 number, and it plays the calculation out 100,000 times and shows how the answers
-spread: a median, 90%/50% ranges, percentiles and a histogram.
+spread: a median, 90%/50% ranges and a histogram.
 
 ```
 17:30 - 15m~30m - 5m~~10m      when do I have to leave?
@@ -55,7 +55,7 @@ histogram text (that's tested). These are the deliberate differences:
 - The result updates as you type. The random generator is seeded from the
   expression, so the same input always gives the same result.
 - `=` gives a phone's whole screen to the result and adds the expression to the history.
-- Tap a histogram bar to see its odds.
+- Tap a histogram bar to see its odds; tap it again to hide them.
 - *Copy as text* gives the CLI's output. *Share link* gives a `#e=` URL that reproduces the result exactly.
 - Settings mirror the CLI flags: `--12h`, `-s`, `-b`, `-g`, `-m`.
 - It's an installable PWA and works offline.

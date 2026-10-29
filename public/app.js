@@ -5,7 +5,7 @@
 import { LAYOUT, GLYPHS, applyKey } from './keypad.js';
 import { buildHistogram, histogramRows } from './engine/histogram.js';
 import { formatterFor } from './engine/format.js';
-import { searchLeft, PERCENTILES } from './engine/stats.js';
+import { searchLeft } from './engine/stats.js';
 import { cliText } from './engine/report.js';
 
 const $ = (id) => document.getElementById(id);
@@ -244,10 +244,6 @@ function render() {
         el('dd', {}, `${fmt(p[25])} – ${fmt(p[75])}`),
     );
 
-    $('chips').replaceChildren(
-        ...PERCENTILES.map((q) => el('span', {}, el('b', {}, `${q}%`), fmt(p[q]))),
-    );
-
     const paths = result.pathMedians;
     const multi = paths && paths.length > 1;
     $('paths').hidden = !multi;
@@ -272,11 +268,8 @@ function render() {
     const { rows, useSeconds, labelWidth } = histogramRows(h, labelFmt);
     histState = { rows, h, result, fmt: (v) => labelFmt(v, useSeconds) };
 
-    // The detail line moves under whichever bar was tapped; reset it first,
-    // before the rows it may be sitting among are replaced.
-    $('hist').after(rowDetail);
-    rowDetail.classList.remove('open');
-    rowDetail.textContent = 'Tap a bar to see its odds.';
+    // Reset the detail line before the rows it may be sitting among are replaced.
+    closeRowDetail();
     renderHistogram(rows, labelWidth);
     renderSpark(h);
 }
@@ -349,10 +342,22 @@ function describeRow(i) {
     ];
 }
 
+// The detail line moves under whichever bar was tapped; closed, it goes back
+// below the histogram as a hint.
+function closeRowDetail() {
+    for (const r of $('hist').querySelectorAll('.selected')) r.classList.remove('selected');
+    $('hist').after(rowDetail);
+    rowDetail.classList.remove('open');
+    rowDetail.textContent = 'Tap a bar to see its odds.';
+}
+
 $('hist').addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (!row || !histState) return;
-    for (const r of $('hist').querySelectorAll('.selected')) r.classList.remove('selected');
+    // A second tap on the same bar closes it.
+    const reopen = !row.classList.contains('selected');
+    closeRowDetail();
+    if (!reopen) return;
     row.classList.add('selected');
     row.after(rowDetail);
     rowDetail.classList.add('open');
