@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11151a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
+<meta name="description" content="A calculator for uncertain numbers, times and durations: type ranges, get a histogram of what is likely.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="unsure">
+<title>unsure calc</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="app">
+    <header class="bar">
+        <h1 class="brand">
+            <svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 12c5 0 7-10 11-10s6 10 11 10"/></svg>
+            unsure
+        </h1>
+        <nav>
+            <button type="button" class="icon" data-open="history" aria-label="History">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2"/></svg>
+            </button>
+            <button type="button" class="icon" data-open="help" aria-label="Help">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>
+            </button>
+            <button type="button" class="icon" data-open="settings" aria-label="Settings">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+            </button>
+        </nav>
+    </header>
+
+    <section class="screen">
+        <div class="entry">
+            <input id="expr" type="text" inputmode="none" enterkeyhint="go" autocomplete="off"
+                   autocorrect="off" autocapitalize="off" spellcheck="false"
+                   placeholder="17:30 - 15m~30m" aria-label="Expression">
+            <button type="button" id="kbd" class="icon" aria-label="Use the system keyboard" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M8 14h8"/></svg>
+            </button>
+        </div>
+        <p id="status" class="status" role="status"></p>
+
+        <div id="results" class="results">
+            <div id="intro" class="intro">
+                <p>A calculator for things you're not sure about. Put a range where you'd guess a number, and see how the answer spreads out.</p>
+                <p class="try">Try</p>
+                <div class="examples" data-examples>
+                    <button type="button" data-expr="17:30 - 15m~30m - 5m~~10m">17:30 - 15m~30m - 5m~~10m</button>
+                    <button type="button" data-expr="9:00 + 45m~~60m">9:00 + 45m~~60m</button>
+                    <button type="button" data-expr="7:15~~7:45 + 5~~15|30~~45">7:15~~7:45 + 5~~15|30~~45</button>
+                    <button type="button" data-expr="1h + 30m~45m + 10m~>25m">1h + 30m~45m + 10m~>25m</button>
+                    <button type="button" data-expr="240 - 10~20 - 5~~10">240 - 10~20 - 5~~10</button>
+                </div>
+            </div>
+
+            <div id="output" class="output" hidden>
+                <div class="summary">
+                    <div class="headline">
+                        <span id="headline" class="value"></span>
+                        <span id="headline-label" class="label"></span>
+                    </div>
+                    <button type="button" id="spark" class="spark" aria-label="Show the full result">
+                        <svg viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"></svg>
+                    </button>
+                </div>
+                <dl id="ranges" class="ranges"></dl>
+
+                <div id="details" class="details">
+                    <div id="chips" class="chips"></div>
+                    <p id="paths" class="paths" hidden></p>
+                    <div id="hist" class="hist"></div>
+                    <p id="row-detail" class="row-detail" aria-live="polite"></p>
+                    <div class="actions">
+                        <button type="button" id="edit" class="pill only-expanded">Edit</button>
+                        <button type="button" id="copy" class="pill">Copy as text</button>
+                        <button type="button" id="share" class="pill">Share link</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="keypad" class="keypad" aria-label="Keypad"></section>
+</div>
+
+<dialog id="history" class="sheet" aria-labelledby="history-title">
+    <header><h2 id="history-title">History</h2><button type="button" class="icon close" aria-label="Close">✕</button></header>
+    <ol id="history-list" class="history-list"></ol>
+    <p id="history-empty" class="muted">Calculations you finish with = show up here.</p>
+    <button type="button" id="history-clear" class="pill">Clear history</button>
+</dialog>
+
+<dialog id="help" class="sheet" aria-labelledby="help-title">
+    <header><h2 id="help-title">How it works</h2><button type="button" class="icon close" aria-label="Close">✕</button></header>
+    <p>Write a calculation the usual way, but wherever you're unsure of a number, give a range. The calculator plays it out 100,000 times, each time picking a value from every range, and shows you how the answers spread out.</p>
+
+    <h3>Ranges</h3>
+    <table class="ops">
+        <tr><td><svg viewBox="0 0 24 14"><path d="M2 12V4h20v8"/></svg></td><td><code>10~20</code></td><td>Anywhere from 10 to 20, all equally likely</td></tr>
+        <tr><td><svg viewBox="0 0 24 14"><path d="M1 12c5 0 7-10 11-10s6 10 11 10"/></svg></td><td><code>10~~20</code></td><td>Bell curve: usually near 15, 95% of the time between 10 and 20</td></tr>
+        <tr><td><svg viewBox="0 0 24 14"><path d="M1 12c2 0 3-10 6-10 4 0 9 9 16 10"/></svg></td><td><code>10&lt;~20</code></td><td>Usually close to 10, occasionally up to 20</td></tr>
+        <tr><td><svg viewBox="0 0 24 14"><path d="M23 12c-2 0-3-10-6-10-4 0-9 9-16 10"/></svg></td><td><code>10~&gt;20</code></td><td>Usually close to 20, occasionally down to 10</td></tr>
+        <tr><td><svg viewBox="0 0 24 14"><path d="M1 12c2 0 3-8 5-8s2.5 8 6 8 3.5-8 6-8 3 8 5 8"/></svg></td><td><code>5~~15|30~~45</code></td><td>Either one or the other, equally likely. <code>|</code> binds tighter than × and +</td></tr>
+    </table>
+
+    <h3>Times and durations</h3>
+    <p><code>17:30</code>, <code>5:30pm</code> and <code>5pm</code> are times of day. <code>15m</code>, <code>1h</code>, <code>2h30m</code> and <code>1.5h</code> are durations. In a calculation with times, a plain number counts as minutes. A result past midnight shows <code>(+1d)</code>.</p>
+    <p>If there's a time of day anywhere in the calculation, the answer is a time; if there are only durations, it's a duration.</p>
+
+    <h3>Reading the result</h3>
+    <p>The big number is the median: half the outcomes land on each side of it. The 90% range leaves out the most extreme 5% at each end. In the histogram each bar is one slice of outcomes; <em>above</em> and <em>below</em> hold the outer 2% at each end. Tap a bar to see its odds.</p>
+    <p>Hold <kbd>×</kbd> for <code>^</code> (power). Hold <kbd>⌫</kbd> to clear.</p>
+
+    <h3>Examples</h3>
+    <div class="examples" data-examples>
+        <button type="button" data-expr="17:30 - 15m~30m">17:30 - 15m~30m</button>
+        <button type="button" data-expr="14:30 - 20m - 5m~10m">14:30 - 20m - 5m~10m</button>
+        <button type="button" data-expr="5:30pm - 1h&lt;~2h">5:30pm - 1h&lt;~2h</button>
+        <button type="button" data-expr="8:00 + 30m~&gt;60m">8:00 + 30m~&gt;60m</button>
+        <button type="button" data-expr="7:00 + 5~~10|50~~60">7:00 + 5~~10|50~~60</button>
+        <button type="button" data-expr="(10~20 + 5) * 2">(10~20 + 5) * 2</button>
+    </div>
+
+    <p class="credit">Based on Filip Hráček's <a href="https://github.com/filiph/unsure" rel="noopener">Unsure Calculator</a> (MIT), with times, durations and shaped ranges added. <a href="https://github.com/chaseroden/unsure-calc" rel="noopener">Source</a>.</p>
+</dialog>
+
+<dialog id="settings" class="sheet" aria-labelledby="settings-title">
+    <header><h2 id="settings-title">Settings</h2><button type="button" class="icon close" aria-label="Close">✕</button></header>
+    <form id="settings-form">
+        <fieldset class="seg">
+            <legend>Clock</legend>
+            <label><input type="radio" name="h12" value="false"><span>24-hour</span></label>
+            <label><input type="radio" name="h12" value="true"><span>12-hour</span></label>
+        </fieldset>
+        <label class="field">
+            <span>Samples</span>
+            <select name="samples">
+                <option value="10000">10,000 (fastest)</option>
+                <option value="100000">100,000</option>
+                <option value="250000">250,000</option>
+                <option value="1000000">1,000,000 (smoothest)</option>
+            </select>
+        </label>
+        <label class="field">
+            <span>Histogram bars</span>
+            <select name="buckets">
+                <option value="auto">Auto</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="60">60</option>
+            </select>
+        </label>
+        <label class="check"><input type="checkbox" name="collapseGaps"><span>Collapse runs of empty bars into “…”</span></label>
+        <label class="check"><input type="checkbox" name="perPath"><span>With <code>|</code>, mark the median of each path</span></label>
+    </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
