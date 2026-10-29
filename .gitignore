@@ -1,0 +1,8 @@
+# The original project this was built from; reference/ holds the parts used.
+unsure.tar.gz
+
+# tools/make_fixtures.py and tools/make_icons.py run in a local venv.
+.venv/
+__pycache__/
+
+node_modules/

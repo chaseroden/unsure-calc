@@ -1,0 +1,11 @@
+{
+    "name": "unsure-calc",
+    "private": true,
+    "type": "module",
+    "description": "Mobile web calculator for uncertain numbers, times and durations",
+    "scripts": {
+        "test": "node --test",
+        "serve": "python3 -m http.server -d public 8137"
+    },
+    "license": "MIT"
+}
