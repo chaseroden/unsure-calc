@@ -30,16 +30,28 @@ left, as in the Python. Times of day are `17:30`, `5:30pm` or `5pm`; durations a
 `15m`, `1h`, `2h30m` or `1.5h`. Everything is minutes underneath, so a plain number
 in a time calculation counts as minutes.
 
-A result is a **time** if there's a time of day anywhere in the expression, a
-**duration** if there are only durations (`1h 37m`), and otherwise a plain number.
+A time of day is a point on the clock and a duration is the distance between two
+points, so they combine the way points and distances do:
+
+- time − time is a **duration**: `10am - 9am` is `1h`
+- time ± duration (or a plain number of minutes) is a **time**: `10am - 30` is `9:30 AM`
+- durations add and subtract to durations, and scale by plain numbers: `1h * 3` is `3h`
+- duration ÷ duration is a **plain number**: `2h / 30m` is `4`
+
+Adding two times of day, subtracting one from a duration, or multiplying, dividing or
+raising one to a power is an error, with a hint at the operator. So is mixing a time
+and a duration in one range or across `|`. A midpoint is `9am + (5pm - 9am) / 2`.
+Differences are signed (`9am - 10am` is `-1h`). For a span past midnight, add `24h`:
+`1am + 24h - 11pm` is `2h`.
 
 ### Differences from `timecalc.py`
 
 The engine matches the Python output character for character, including the
 histogram text (that's tested). These are the deliberate differences:
 
-- **Duration-only expressions display as durations.** The CLI prints `1h + 30m`
-  as the clock time `01:30`.
+- **Results are times, durations or numbers by the rules above.** The CLI prints
+  any result involving a time or duration as a clock time, so `1h + 30m` is `01:30`
+  and `10am - 9am` is `01:00`. It also accepts nonsense like `9am + 5pm`, which is an error here.
 - **Whitespace separates tokens.** The Python deletes it first, so `5 3` means 53.
 - **`2h30` means 2h30m.** The Python silently reads it as 2h.
 - **Error positions point into the text as typed**, so the bad part can be selected.

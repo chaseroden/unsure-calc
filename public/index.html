@@ -110,7 +110,8 @@
 
     <h3>Times and durations</h3>
     <p><code>17:30</code>, <code>5:30pm</code> and <code>5pm</code> are times of day. <code>15m</code>, <code>1h</code>, <code>2h30m</code> and <code>1.5h</code> are durations. In a calculation with times, a plain number counts as minutes. A result past midnight shows <code>(+1d)</code>.</p>
-    <p>If there's a time of day anywhere in the calculation, the answer is a time; if there are only durations, it's a duration.</p>
+    <p>A time minus a time is a duration (<code>5pm - 9am</code> is 8h). A time plus or minus a duration is a time. A duration divided by a duration is a plain number (<code>2h / 30m</code> is 4). Adding two times of day, or multiplying one, is an error: for a midpoint, write <code>9am + (5pm - 9am) / 2</code>.</p>
+    <p>For a span past midnight, add <code>24h</code>: <code>1am + 24h - 11pm</code> is 2h.</p>
 
     <h3>Reading the result</h3>
     <p>The big number is the median: half the outcomes land on each side of it. The 90% range leaves out the most extreme 5% at each end. In the histogram each bar is one slice of outcomes; <em>above</em> and <em>below</em> hold the outer 2% at each end. Tap a bar to see its odds, and tap it again to hide them.</p>
@@ -123,6 +124,7 @@
         <button type="button" data-expr="5:30pm - 1h&lt;~2h">5:30pm - 1h&lt;~2h</button>
         <button type="button" data-expr="8:00 + 30m~&gt;60m">8:00 + 30m~&gt;60m</button>
         <button type="button" data-expr="7:00 + 5~~10|50~~60">7:00 + 5~~10|50~~60</button>
+        <button type="button" data-expr="17:30 - 8:45~~9:15">17:30 - 8:45~~9:15</button>
         <button type="button" data-expr="(10~20 + 5) * 2">(10~20 + 5) * 2</button>
     </div>
 

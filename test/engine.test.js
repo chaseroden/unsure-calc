@@ -64,6 +64,61 @@ test('result kinds', () => {
     assert.equal(parse('240 - 10~20').kind, 'number');
 });
 
+test('times are points, durations are distances', () => {
+    const constant = (expr, kind, value) => {
+        const r = evaluate(expr);
+        assert.equal(r.kind, kind, `${expr}: kind`);
+        assert.equal(r.value, value, `${expr}: value`);
+    };
+    constant('10am - 9am', 'duration', 60);
+    assert.equal(formatterFor('duration')(60), '1h');
+    constant('10am - 30', 'time', 570);
+    constant('50 - 25', 'number', 25);
+    constant('9am - 10am', 'duration', -60);
+    assert.equal(formatterFor('duration')(-60), '-1h');
+    constant('1am + 24h - 11pm', 'duration', 120);
+    constant('9am + (5pm - 9am) / 2', 'time', 780);
+    constant('2h / 30m', 'number', 4);
+    constant('(5pm - 9am) / 30m', 'number', 16);
+    constant('1h * 3', 'duration', 180);
+    constant('30 + 1h', 'duration', 90);
+    constant('30m + 9am', 'time', 570);
+    assert.equal(parse('5pm - 8:45~~9:15').kind, 'duration');
+    assert.equal(parse('(5pm - 8:45~~9:15) / 30m').kind, 'number');
+    assert.equal(parse('9:00~9:30 | 10 + 1h').kind, 'time');
+});
+
+test('combinations that mean nothing on a clock are errors at the operator', () => {
+    const cases = [
+        ['9am + 5pm', '+', /add two times/],
+        ['(9am + 5pm) / 2', '+', /add two times/],
+        ['2 * 9am', '*', /multiply a time/],
+        ['9am / 2', '/', /divide a time/],
+        ['30m - 9am', '-', /from a duration/],
+        ['30 - 9am', '-', /from a number/],
+        ['1h * 1h', '*', /two durations/],
+        ['60 / 15m', '/', /number by a duration/],
+        ['2 ^ 1h', '^', /plain numbers/],
+        ['5pm | 30m', '|', /either side of '\|'/],
+        ['1 | 5pm | 30m', '|', /either side of '\|'/],
+        ['9am~30m', '~', /in a range/],
+    ];
+    for (const [expr, op, message] of cases) {
+        const err = (() => {
+            try {
+                parse(expr);
+            } catch (e) {
+                return e;
+            }
+        })();
+        assert.ok(err instanceof ParseError, `${expr}: throws ParseError`);
+        assert.match(err.message, message, expr);
+        assert.equal(expr.slice(err.pos, err.end), op, `${expr}: points at ${op}`);
+    }
+    // In a chain, the '|' where the kinds first clash is the one reported.
+    assert.throws(() => parse('1 | 5pm | 30m'), (e) => e.pos === 8);
+});
+
 test('formats clock times like format_time_result', () => {
     for (const c of ref.format_time) {
         assert.equal(formatClock(c.minutes, { h12: c.h12, seconds: c.seconds }), c.out, JSON.stringify(c));

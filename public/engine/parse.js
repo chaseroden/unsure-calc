@@ -10,6 +10,10 @@
 // minutes since midnight. Unlike the Python, whitespace separates tokens (it
 // does not glue "5 3" into 53), "2h30" means 2h30m rather than silently 2h,
 // and error positions point into the string as typed.
+//
+// Every node also gets a result kind (see combine), which decides how the
+// answer is shown. The Python has no such thing: any time or duration in the
+// expression makes the whole result a clock time.
 
 export class ParseError extends Error {
     constructor(message, pos, end = pos) {
@@ -86,13 +90,65 @@ function durationMinutes(tok) {
     return (h ? Number(h[1]) * 60 : 0) + (m ? Number(m[1] ?? m[2]) : 0);
 }
 
+// Result kinds. A time of day is a point on the clock and a duration is the
+// distance between two points, so they combine like points and vectors:
+// time - time is a duration, time ± duration is a time, duration / duration
+// is a plain number, and time + time means nothing. Under + - ~ and |, a
+// plain number next to a time or duration counts as minutes. Every value is
+// minutes underneath either way; the kind only changes how it is shown.
+const T = 'time';
+const D = 'duration';
+const N = 'number';
+
+function combine(op, a, b, tok) {
+    const fail = (message) => {
+        throw new ParseError(message, tok.pos, tok.end);
+    };
+    switch (op) {
+        case '+':
+            if (a === T && b === T) fail("Can't add two times of day. For a duration, write e.g. 1h30m");
+            if (a === T || b === T) return T;
+            return a === D || b === D ? D : N;
+        case '-':
+            if (b === T) {
+                if (a === T) return D;
+                fail(`Can't subtract a time of day from a ${a === D ? 'duration' : 'number'}`);
+            }
+            if (a === T) return T;
+            return a === D || b === D ? D : N;
+        case '*':
+        case '/': {
+            const verb = op === '*' ? 'multiply' : 'divide';
+            if (a === T || b === T) fail(`Can't ${verb} a time of day. Subtract first, e.g. (5pm - 9am) ${op} 2`);
+            if (op === '*') {
+                if (a === D && b === D) fail("Can't multiply two durations");
+                return a === D || b === D ? D : N;
+            }
+            if (b === D) {
+                if (a === D) return N;
+                fail("Can't divide a number by a duration (try 60m / 15m)");
+            }
+            return a;
+        }
+        case '^':
+            if (a !== N || b !== N) fail('Powers only work on plain numbers');
+            return N;
+    }
+}
+
+// The two ends of a range, and every side of '|', must be the same kind; a
+// plain number takes the kind of the other side.
+function unify(a, b, tok, where) {
+    if (a === b || b === N) return a;
+    if (a === N) return b;
+    throw new ParseError(`Can't mix a time of day and a duration ${where}`, tok.pos, tok.end);
+}
+
 class Parser {
     constructor(src) {
         this.src = src;
         this.tokens = tokenize(src);
         this.i = 0;
-        this.sawTime = false;
-        this.sawDuration = false;
     }
 
     peek() {
@@ -115,8 +171,9 @@ class Parser {
         return t ? `'${t.text}'` : 'end of input';
     }
 
-    // parse_time_or_number. A sign is only accepted in front of a plain number,
-    // as in the Python, where the sign lives inside the number regex.
+    // parse_time_or_number, returning { value, kind }. A sign is only accepted
+    // in front of a plain number, as in the Python, where the sign lives
+    // inside the number regex.
     literal(after) {
         const start = this.peek();
         let sign = 1;
@@ -133,15 +190,9 @@ class Parser {
             this.fail(`Expected a number, time or duration${where}, found ${this.describeNext()}`);
         }
         this.i++;
-        if (t.type === 'time') {
-            this.sawTime = true;
-            return timeMinutes(t);
-        }
-        if (t.type === 'duration') {
-            this.sawDuration = true;
-            return durationMinutes(t);
-        }
-        return sign * Number(t.text);
+        if (t.type === 'time') return { value: timeMinutes(t), kind: T };
+        if (t.type === 'duration') return { value: durationMinutes(t), kind: D };
+        return { value: sign * Number(t.text), kind: N };
     }
 
     atom() {
@@ -161,53 +212,57 @@ class Parser {
         if (t && t.type === 'op' && DIST_OPS[t.text]) {
             this.i++;
             const b = this.literal(t.text);
-            return { type: 'dist', shape: DIST_OPS[t.text], min: a, max: b };
+            const kind = unify(a.kind, b.kind, t, 'in a range');
+            return { type: 'dist', shape: DIST_OPS[t.text], min: a.value, max: b.value, kind };
         }
-        return { type: 'num', value: a };
+        return { type: 'num', value: a.value, kind: a.kind };
     }
 
     factor() {
         const branches = [this.atom()];
+        let kind = branches[0].kind;
         while (this.isOp('|')) {
+            const bar = this.peek();
             this.i++;
-            branches.push(this.atom());
+            const next = this.atom();
+            kind = unify(kind, next.kind, bar, "on either side of '|'");
+            branches.push(next);
         }
-        return branches.length === 1 ? branches[0] : { type: 'mix', branches };
+        return branches.length === 1 ? branches[0] : { type: 'mix', branches, kind };
+    }
+
+    binary(next, ops) {
+        let node = next();
+        while (ops.some((op) => this.isOp(op))) {
+            const tok = this.peek();
+            this.i++;
+            const right = next();
+            const kind = combine(tok.text, node.kind, right.kind, tok);
+            node = { type: 'bin', op: tok.text, left: node, right, kind };
+        }
+        return node;
     }
 
     term() {
-        let node = this.factor();
-        while (this.isOp('*') || this.isOp('/') || this.isOp('^')) {
-            const op = this.peek().text;
-            this.i++;
-            node = { type: 'bin', op, left: node, right: this.factor() };
-        }
-        return node;
+        return this.binary(() => this.factor(), ['*', '/', '^']);
     }
 
     expr() {
-        let node = this.term();
-        while (this.isOp('+') || this.isOp('-')) {
-            const op = this.peek().text;
-            this.i++;
-            node = { type: 'bin', op, left: node, right: this.term() };
-        }
-        return node;
+        return this.binary(() => this.term(), ['+', '-']);
     }
 }
 
-// Returns { ast, kind, canonical }. kind is 'time' when any time-of-day
-// literal appears, 'duration' when only durations do, otherwise 'number'.
-// canonical is the token stream without whitespace, used to seed the RNG so
-// that "10 ~ 20" and "10~20" give identical results.
+// Returns { ast, kind, canonical }. kind is the root node's kind: 'time',
+// 'duration' or 'number' (see combine). canonical is the token stream without
+// whitespace, used to seed the RNG so that "10 ~ 20" and "10~20" give
+// identical results.
 export function parse(src) {
     const p = new Parser(src);
     if (p.tokens.length === 0) throw new ParseError('Empty expression', 0);
     const ast = p.expr();
     if (p.peek()) p.fail(`Unexpected ${p.describeNext()}`);
-    const kind = p.sawTime ? 'time' : p.sawDuration ? 'duration' : 'number';
     const canonical = p.tokens.map((t) => t.text.toLowerCase().replace(/\s+/g, '')).join('');
-    return { ast, kind, canonical };
+    return { ast, kind: ast.kind, canonical };
 }
 
 export function isStochastic(node) {
